@@ -1,23 +1,26 @@
 # Brújula v4 — descarga precios diarios con volumen (Yahoo chart API) y fundamentales (quoteSummary).
 # Si Yahoo limita las consultas, completa en este orden: fund.json de GitHub (otra red), core.json anterior, finnhub.io (clave en FINNHUB_KEY) y api.nasdaq.com.
 # Modo GitHub: python3 -I build_data.py --fund data/fund.json
+# Control de precios (GitHub): python3 -I build_data.py --check data/check.json
 # Uso: python3 -I build_data.py CARPETA_SALIDA [core.json_anterior]   -> escribe CARPETA/core.json y CARPETA/t/<TICKER>.json
 import json, sys, time, subprocess, urllib.parse, os, tempfile
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 NDX='AAPL ABNB ADBE ADI ADP ADSK AEP ALAB ALNY AMAT AMD AMGN AMZN APP ARM ASML AVGO AXON BKNG BKR CCEP CDNS CEG CMCSA COST CPRT CRWD CRWV CSCO CSX CTAS DASH DDOG DXCM EA EXC FANG FAST FER FTNT GEHC GILD GOOGL HON IDXX INTC INTU ISRG KDP KHC KLAC LIN LITE LRCX MAR MCHP MDLZ MELI META MNST MPWR MRVL MSFT MSTR MU NBIS NFLX NVDA NXPI ODFL ORLY PANW PAYX PCAR PDD PEP PLTR PYPL QCOM REGN RKLB ROP ROST SBUX SHOP SNDK SNPS STX TER TMUS TRI TSLA TTWO TXN VRTX WBD WDAY WDC WMT XEL'.split()
 SPX='BRK-B JPM V MA UNH LLY XOM JNJ PG HD KO MRK ABBV CVX BAC ORCL CRM MCD DIS NKE IBM GE CAT GS MS T VZ PFE BA UBER VST TSM NOW RDDT DELL HPQ'.split()
-ETF_US='SPY QQQ VT IWM RSP SCHD JEPI QYLD QQQI SPYI SMH SOXX GLD SLV TLT COPX CPER USO WEAT CORN XLE AINF.AS'.split()
+ETF_US='SPY QQQ QQQM VT IWM RSP SCHD JEPI QYLD QQQI SPYI SMH SOXX GLD SLV TLT COPX CPER USO WEAT CORN XLE AINF.AS'.split()
 COMM='FCX SCCO BHP RIO NEM GDX SIL'.split()  # materias primas: cobre, mineras de oro y plata
 ASX='PMGOLD.AX HACK.AX FANG.AX SEMI.AX ETHI.AX QAU.AX IOZ.AX VAS.AX VGS.AX NDQ.AX A200.AX IVV.AX GDX.AX MNRS.AX BHP.AX CBA.AX CSL.AX WES.AX MQG.AX FMG.AX'.split()
 REIT='VICI O ADC CPT BN OWL'.split()  # inmobiliario (REITs) y gestoras de activos alternativos
 INTL='NVO NU BABA BB'.split()  # grandes extranjeras que cotizan en EE.UU.
 OTRAS='AMC CHPT'.split()  # otras de EE.UU. que sigue la familia
+LEV='TQQQ QLD SSO UPRO GGUS.AX LNAS.AX GNDQ.AX GHHF.AX G200.AX'.split()  # apalancados: solo para estudiar el riesgo, no son parte del método
 CRYPTO=['BTC-USD','ETH-USD']
 MAG=['AAPL','MSFT','NVDA','AMZN','GOOGL','META','TSLA','AVGO']
-NAMES={'BABA':'Alibaba (ADR, US$)','BB':'BlackBerry','AMC':'AMC Entertainment (cines)','CHPT':'ChargePoint (carga de autos eléctricos)','NVO':'Novo Nordisk (ADR, US$)','NU':'Nu Holdings (Nubank)','VICI':'VICI Properties (casinos, REIT)','O':'Realty Income (REIT)','ADC':'Agree Realty (REIT)','CPT':'Camden Property Trust (apartamentos, REIT)','BN':'Brookfield Corporation','OWL':'Blue Owl Capital','AINF.AS':'Infraestructura de IA (iShares, US$)','NOW':'ServiceNow','RDDT':'Reddit','DELL':'Dell Technologies','HPQ':'HP Inc.','GDX':'Mineras de oro (VanEck, US$)','SIL':'Mineras de plata (Global X, US$)','GDX.AX':'Mineras de oro en A$ (VanEck GDX)','MNRS.AX':'Mineras de oro cubiertas en A$ (Betashares)','COPX':'Mineras de cobre (Global X)','CPER':'Cobre (futuros, US$)','USO':'Petróleo (futuros, US$)','WEAT':'Trigo (futuros, US$)','CORN':'Maíz (futuros, US$)','XLE':'Energía EE.UU. (sector)','FCX':'Freeport-McMoRan (cobre)','SCCO':'Southern Copper','BHP':'BHP (en EE.UU., US$)','RIO':'Rio Tinto (en EE.UU., US$)','NEM':'Newmont (oro)','HACK.AX':'Ciberseguridad global (Betashares HACK)','FANG.AX':'Tecnológicas globales FANG+ (Global X)','SEMI.AX':'Semiconductores globales (Global X)','ETHI.AX':'Sostenibles globales (Betashares ETHI)','QAU.AX':'Oro cubierto en A$ (Betashares QAU)','SPY':'S&P 500','QQQ':'Nasdaq-100','PMGOLD.AX':'Oro Perth Mint (A$)','GLD':'Oro (US$)','SLV':'Plata (US$)','BTC-USD':'Bitcoin','ETH-USD':'Ethereum','VT':'Mundo (todas las bolsas)','IWM':'Empresas pequeñas EE.UU.','RSP':'S&P 500 peso igual','TLT':'Bonos EE.UU. 20+ años','IOZ.AX':'ASX 200 (iShares)','VAS.AX':'ASX 300 (Vanguard)','VGS.AX':'Mundo sin Australia (Vanguard)','NDQ.AX':'Nasdaq-100 en A$ (Betashares)','A200.AX':'ASX 200 (Betashares)','IVV.AX':'S&P 500 en A$ (iShares)','SMH':'Semiconductores (VanEck)','SOXX':'Semiconductores (iShares)','SCHD':'Dividendos EE.UU. (Schwab)','JEPI':'Ingresos con opciones (JPMorgan)','QYLD':'Nasdaq con opciones (Global X)','QQQI':'Nasdaq con opciones (NEOS)','SPYI':'S&P 500 con opciones (NEOS)','GOOGL':'Alphabet (Google)','META':'Meta (Facebook)','BRK-B':'Berkshire Hathaway'}
+NAMES={'QQQM':'Nasdaq-100 (Invesco, versión barata de QQQ)','TQQQ':'Nasdaq-100 x3 diario (ProShares)','QLD':'Nasdaq-100 x2 diario (ProShares)','SSO':'S&P 500 x2 diario (ProShares)','UPRO':'S&P 500 x3 diario (ProShares)','GGUS.AX':'S&P 500 apalancado 2–2,9x en A$ (Betashares GGUS)','LNAS.AX':'Nasdaq-100 apalancado 2–2,75x en A$ (Global X LNAS)','GNDQ.AX':'Nasdaq-100 con 30–40% de deuda en A$ (Betashares GNDQ)','GHHF.AX':'Mundo con 30–40% de deuda en A$ (Betashares GHHF)','G200.AX':'ASX 200 con 30–40% de deuda (Betashares G200)','BABA':'Alibaba (ADR, US$)','BB':'BlackBerry','AMC':'AMC Entertainment (cines)','CHPT':'ChargePoint (carga de autos eléctricos)','NVO':'Novo Nordisk (ADR, US$)','NU':'Nu Holdings (Nubank)','VICI':'VICI Properties (casinos, REIT)','O':'Realty Income (REIT)','ADC':'Agree Realty (REIT)','CPT':'Camden Property Trust (apartamentos, REIT)','BN':'Brookfield Corporation','OWL':'Blue Owl Capital','AINF.AS':'Infraestructura de IA (iShares, US$)','NOW':'ServiceNow','RDDT':'Reddit','DELL':'Dell Technologies','HPQ':'HP Inc.','GDX':'Mineras de oro (VanEck, US$)','SIL':'Mineras de plata (Global X, US$)','GDX.AX':'Mineras de oro en A$ (VanEck GDX)','MNRS.AX':'Mineras de oro cubiertas en A$ (Betashares)','COPX':'Mineras de cobre (Global X)','CPER':'Cobre (futuros, US$)','USO':'Petróleo (futuros, US$)','WEAT':'Trigo (futuros, US$)','CORN':'Maíz (futuros, US$)','XLE':'Energía EE.UU. (sector)','FCX':'Freeport-McMoRan (cobre)','SCCO':'Southern Copper','BHP':'BHP (en EE.UU., US$)','RIO':'Rio Tinto (en EE.UU., US$)','NEM':'Newmont (oro)','HACK.AX':'Ciberseguridad global (Betashares HACK)','FANG.AX':'Tecnológicas globales FANG+ (Global X)','SEMI.AX':'Semiconductores globales (Global X)','ETHI.AX':'Sostenibles globales (Betashares ETHI)','QAU.AX':'Oro cubierto en A$ (Betashares QAU)','SPY':'S&P 500','QQQ':'Nasdaq-100','PMGOLD.AX':'Oro Perth Mint (A$)','GLD':'Oro (US$)','SLV':'Plata (US$)','BTC-USD':'Bitcoin','ETH-USD':'Ethereum','VT':'Mundo (todas las bolsas)','IWM':'Empresas pequeñas EE.UU.','RSP':'S&P 500 peso igual','TLT':'Bonos EE.UU. 20+ años','IOZ.AX':'ASX 200 (iShares)','VAS.AX':'ASX 300 (Vanguard)','VGS.AX':'Mundo sin Australia (Vanguard)','NDQ.AX':'Nasdaq-100 en A$ (Betashares)','A200.AX':'ASX 200 (Betashares)','IVV.AX':'S&P 500 en A$ (iShares)','SMH':'Semiconductores (VanEck)','SOXX':'Semiconductores (iShares)','SCHD':'Dividendos EE.UU. (Schwab)','JEPI':'Ingresos con opciones (JPMorgan)','QYLD':'Nasdaq con opciones (Global X)','QQQI':'Nasdaq con opciones (NEOS)','SPYI':'S&P 500 con opciones (NEOS)','GOOGL':'Alphabet (Google)','META':'Meta (Facebook)','BRK-B':'Berkshire Hathaway'}
 def grp(s):
     if s in ('SPY','QQQ'): return 'Índices'
+    if s in LEV: return 'Apalancados (más riesgo)'
     if s in ('PMGOLD.AX','GLD','SLV'): return 'Oro y plata'
     if s in MAG: return 'Las 7 Magníficas + Broadcom'
     if s in CRYPTO: return 'Cripto'
@@ -29,7 +32,7 @@ def grp(s):
     if s in ETF_US: return 'Fondos cotizados (ETF)'
     if s in NDX: return 'Nasdaq-100'
     return 'Grandes del S&P 500'
-UNIV=list(dict.fromkeys(['SPY','QQQ','PMGOLD.AX','GLD','SLV']+MAG+CRYPTO+ETF_US+ASX+NDX+SPX+COMM+REIT+INTL+OTRAS))
+UNIV=list(dict.fromkeys(['SPY','QQQ','PMGOLD.AX','GLD','SLV']+MAG+CRYPTO+ETF_US+ASX+NDX+SPX+COMM+REIT+INTL+OTRAS+LEV))
 AUX=['AUDUSD=X','GC=F','SI=F','^VIX','TLT','IEF','HYG','RSP','XLK','XLF','XLE','XLV','XLY','XLP','XLI','XLB','XLU','XLC','XLRE','BIL','VEU','AGG']
 UA='Mozilla/5.0'
 def curl(url,ck=None):
@@ -60,13 +63,14 @@ def flt_pack(Td,C):
 def delta(a): return [a[0]]+[a[i]-a[i-1] for i in range(1,len(a))]
 def series(sym):
     r=chart(sym); q=r['indicators']['quote'][0]; ac=r['indicators'].get('adjclose',[{}])[0].get('adjclose')
-    tz=ZoneInfo(r['meta'].get('exchangeTimezoneName','UTC')); seen=set(); T=[];O=[];H=[];L=[];C=[];V=[]
+    tz=ZoneInfo(r['meta'].get('exchangeTimezoneName','UTC')); seen=set(); T=[];O=[];H=[];L=[];C=[];V=[];RAW=[]
     for i,ts in enumerate(r['timestamp']):
         o,h,l,c,v=q['open'][i],q['high'][i],q['low'][i],q['close'][i],q['volume'][i]
         if None in (o,h,l,c) or c<=0: continue
         d=(datetime.fromtimestamp(ts,tz).date()-datetime(1970,1,1).date()).days
         if d in seen: continue
         seen.add(d); f=(ac[i]/c) if ac and ac[i] else 1.0
+        RAW.append([d,float(c)])
         T.append(d);O.append(sig(o*f));H.append(sig(h*f));L.append(sig(l*f));C.append(sig(c*f));V.append(int(v or 0)//100)
     m=r['meta']
     if m.get('instrumentType')=='ETF':  # corrige errores de escala de Yahoo (p. ej. IVV.AX): picos de un día y cambios de nivel sin ajustar
@@ -80,7 +84,7 @@ def series(sym):
                 for k in range(i):
                     O[k]=sig(O[k]*q);H[k]=sig(H[k]*q);L[k]=sig(L[k]*q);C[k]=sig(C[k]*q)
             i+=1
-    return {'t':delta(T),'o':O,'h':H,'l':L,'c':C,'v':V,'cur':m.get('currency') or '','long':m.get('longName') or m.get('shortName') or sym,'type':m.get('instrumentType','')}
+    return {'t':delta(T),'o':O,'h':H,'l':L,'c':C,'v':V,'cur':m.get('currency') or '','long':m.get('longName') or m.get('shortName') or sym,'type':m.get('instrumentType',''),'raw':RAW[-10:]}
 def news(syms):
     out={}
     for s in syms:
@@ -268,7 +272,7 @@ def finnhub(syms,fund,cap):
         except Exception as e: print('AVISO finnhub',s,e)
         if not f: fund.pop(s,None)
     print('finnhub: analistas',nr,'· fundamentales completados',nm)
-GH_FUND='https://ipegomezm.github.io/brujula-de-inversion/data/fund.json'
+GH_FUND='https://raw.githubusercontent.com/cesargomezaus-source/brujula-datos/main/data/fund.json'
 def github_fund(fund,cap):
     # fundamentales que descarga GitHub cada día desde otros servidores (modo --fund). Se usan si tienen menos de 4 días.
     try:
@@ -284,10 +288,75 @@ def github_fund(fund,cap):
         for k,v in (d.get('cap') or {}).items(): cap.setdefault(k,v)
         print('github: fundamentales de',n,'activos, de hace',round(age,1),'días')
     except Exception as e: print('AVISO github fund',e)
+GH_CHECK='https://raw.githubusercontent.com/cesargomezaus-source/brujula-datos/main/data/check.json'
+def nq_sym(s):
+    # solo acciones y ETF de EE.UU.; Nasdaq usa BRK.B en vez de BRK-B
+    if '.' in s or '=' in s or '^' in s or s in CRYPTO: return None
+    return s.replace('-','.')
+def nasdaq_closes(s,etf):
+    n=nq_sym(s)
+    if not n: return []
+    u=f"https://api.nasdaq.com/api/quote/{urllib.parse.quote(n)}/historical?assetclass={'etf' if etf else 'stocks'}&fromdate={(datetime.now(timezone.utc)-__import__('datetime').timedelta(days=20)).date()}&limit=15"
+    try:
+        r=((json.loads(curl(u)).get('data') or {}).get('tradesTable') or {}).get('rows') or []
+        out=[]
+        for x in r:
+            mm,dd,yy=x['date'].split('/'); d=(datetime(int(yy),int(mm),int(dd)).date()-datetime(1970,1,1).date()).days
+            out.append([d,float(x['close'].replace('$','').replace(',',''))])
+        return out
+    except Exception: return []
+def check_prices(syms):
+    # modo GitHub: últimos cierres SIN ajustar de Yahoo (desde la red de GitHub) y de Nasdaq (otra fuente)
+    y={};n={}
+    for s in syms:
+        try:
+            r=chart_short(s); q=r['indicators']['quote'][0]['close']
+            tz=ZoneInfo(r['meta'].get('exchangeTimezoneName','UTC'))
+            y[s]=[[(datetime.fromtimestamp(ts,tz).date()-datetime(1970,1,1).date()).days,float(c)] for ts,c in zip(r['timestamp'],q) if c]
+            etf=r['meta'].get('instrumentType')=='ETF'
+        except Exception as e: print('AVISO check',s,e); etf=False
+        v=nasdaq_closes(s,etf)
+        if v: n[s]=v
+        time.sleep(0.3)
+    return y,n
+def chart_short(sym):
+    url=f'https://query2.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(sym)}?range=1mo&interval=1d'
+    for k in range(3):
+        try:
+            r=json.loads(curl(url))['chart']['result'][0]
+            if r.get('timestamp'): return r
+        except Exception: pass
+        time.sleep(3+5*k)
+    raise RuntimeError('sin datos '+sym)
+def qc_prices(raw):
+    # compara el último cierre local con GitHub-Yahoo y con Nasdaq en las mismas fechas; >1% = diferencia
+    try:
+        d=json.loads(subprocess.run(['curl','-sS','--max-time','60',GH_CHECK],capture_output=True,text=True).stdout)
+    except Exception as e:
+        print('QC precios: check.json no disponible',e); return {'ok':False}
+    age=(time.time()-d.get('asof',0))/86400
+    bad=[];nc=0
+    for s,loc in raw.items():
+        L=dict((a,b) for a,b in loc)
+        for src in ('y','n'):
+            R=dict((a,b) for a,b in (d.get(src) or {}).get(s,[]))
+            com=sorted(set(L)&set(R))
+            if not com: continue
+            t=com[-1]; nc+=1
+            if R[t]>0 and abs(L[t]/R[t]-1)>0.01:
+                bad.append({'s':s,'d':t,'src':'GitHub-Yahoo' if src=='y' else 'Nasdaq','local':L[t],'otro':R[t]})
+    print('QC precios:',nc,'comparaciones,',len(bad),'diferencias >1%, check.json de hace',round(age,1),'días')
+    for b in bad[:20]: print('  QC diferencia',b['s'],b['src'],b['local'],'vs',b['otro'])
+    return {'ok':True,'asof':d.get('asof'),'n':nc,'bad':bad}
+if len(sys.argv)>2 and sys.argv[1]=='--check':
+    y,n=check_prices(UNIV+[s for s in LEV if s not in UNIV])
+    os.makedirs(os.path.dirname(sys.argv[2]) or '.',exist_ok=True)
+    json.dump({'asof':int(time.time()),'y':y,'n':n},open(sys.argv[2],'w'),separators=(',',':'))
+    print('OK check',len(y),'Yahoo',len(n),'Nasdaq'); sys.exit(0)
 if len(sys.argv)>2 and sys.argv[1]=='--fund':
     # modo GitHub: solo fundamentales, capitalización y analistas -> un JSON pequeño
     ETF_AX={s for s in ASX if s not in ('BHP.AX','CBA.AX','CSL.AX','WES.AX','MQG.AX','FMG.AX')}
-    st=[s for s in UNIV if s not in ETF_US and s not in CRYPTO and s not in ETF_AX and s not in ('GLD','SLV','GDX','SIL','PMGOLD.AX','VT','IWM','RSP')]
+    st=[s for s in UNIV if s not in ETF_US and s not in CRYPTO and s not in ETF_AX and s not in LEV and s not in ('GLD','SLV','GDX','SIL','PMGOLD.AX','VT','IWM','RSP')]
     fd=fundamentals(st+['SPY','QQQ']);cp=caps(st)
     eq=[s for s in st if s not in ('SPY','QQQ')]
     finnhub(eq,fd,cp);nasdaq(eq,fd,cp)
@@ -296,15 +365,15 @@ if len(sys.argv)>2 and sys.argv[1]=='--fund':
     print('OK fund',len(fd),'fundamentales',len(cp),'capitalizaciones',sum(1 for v in fd.values() if 'rt' in v),'con analistas'); sys.exit(0)
 OUT=sys.argv[1]; os.makedirs(os.path.join(OUT,'t'),exist_ok=True)
 core={'asof':int(time.time()),'list':[],'aux':{},'fund':{},'board':['SPY','QQQ','PMGOLD.AX']+MAG+['BTC-USD']}
-FLT={}
+FLT={};RAWC={}
 for s in UNIV:
     try: x=series(s)
     except Exception as e: print('AVISO',s,e); continue
     if len(x['c'])<300: print('AVISO pocos datos',s); continue
     fn=s.replace('^','_').replace('=','_')+'.json'
     json.dump({k:x[k] for k in ('t','o','h','l','c','v')},open(os.path.join(OUT,'t',fn),'w'),separators=(',',':'))
-    core['list'].append({'s':s,'n':NAMES.get(s,x['long']),'g':grp(s),'cur':x['cur'],'f':fn,'type':x['type']})
-    FLT[s]=flt_pack(x['t'],x['c'])
+    core['list'].append({'s':s,'n':NAMES.get(s,x['long']),'g':grp(s),'cur':x['cur'],'f':fn,'type':('ETF' if s in LEV else x['type'])})
+    FLT[s]=flt_pack(x['t'],x['c']); RAWC[s]=x['raw']
     print(s,len(x['c']),flush=True)
 for s in AUX:
     try: x=series(s)
@@ -339,6 +408,7 @@ have={e['s'] for e in core['list']}
 for s in ['SPY','QQQ','NVDA','BTC-USD','PMGOLD.AX']: assert s in have, s
 assert len(core['list'])>=150, len(core['list'])
 if len(core['fund'])<100: print('AVISO pocos fundamentales',len(core['fund']))
+core['qc']=qc_prices(RAWC)
 json.dump(core,open(os.path.join(OUT,'core.json'),'w'),separators=(',',':'),ensure_ascii=False)
 json.dump(FLT,open(os.path.join(OUT,'flt.json'),'w'),separators=(',',':'))
 print('OK',OUT,len(core['list']),'activos',len(core['fund']),'con fundamentales')
