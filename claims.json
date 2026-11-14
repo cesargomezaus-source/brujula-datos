@@ -1,0 +1,128 @@
+{
+ "asof": "2026-11-15",
+ "REGLA": "Este archivo SOLO se amplia. Cada veredicto que entra a canales.json o al Centro de mando deja aqui su prueba, para que se pueda recalcular sola. Antes de publicarlo: leelo entero, agrega lo nuevo y conserva todo lo que ya estaba. Reemplazar una afirmacion solo si es la misma (mismo id) y el valor esperado se corrigio con una medicion nueva. Quitar una afirmacion exige permiso explicito de Cesar en el chat.",
+ "privacidad": "Solo activos publicos. Las posiciones de Cesar, sus cantidades y sus precios medios NUNCA entran en este archivo.",
+ "metodo": "Cierres ajustados por dividendo de Yahoo. Una fecha que cae en dia no habil se resuelve al ultimo dia habil anterior. 'hoy' se resuelve en cada corrida, asi que esas afirmaciones son vivas y pueden empezar a fallar: eso es el objetivo.",
+ "minCounts": {
+  "claims": 10
+ },
+ "claims": [
+  {
+   "id": "iturralde-noc-hasta-maximo",
+   "afirmacion": "Iturralde dijo que Northrop Grumman subio un 770% desde Euromaidan hasta maximos. Medido da +755%.",
+   "fuente": "https://www.youtube.com/watch?v=LHDdZOnD454",
+   "tipo": "ret",
+   "activo": "NOC",
+   "desde": "2013-11-21",
+   "hasta": "2026-03-02",
+   "metrica": "total",
+   "esperado": 7.55,
+   "tol": 0.08
+  },
+  {
+   "id": "iturralde-lmt-hasta-guerra",
+   "afirmacion": "Iturralde dijo +300% en Lockheed Martin de Euromaidan a la entrada de Rusia en Ucrania. Medido da +259,5%.",
+   "fuente": "https://www.youtube.com/watch?v=LHDdZOnD454",
+   "tipo": "ret",
+   "activo": "LMT",
+   "desde": "2013-11-21",
+   "hasta": "2022-02-24",
+   "metrica": "total",
+   "esperado": 2.595,
+   "tol": 0.04
+  },
+  {
+   "id": "iturralde-noc-bate-indice",
+   "afirmacion": "Las empresas de defensa batieron al indice entre Euromaidan y la guerra: Northrop +311,4% contra SPY +178,0%.",
+   "fuente": "https://www.youtube.com/watch?v=LHDdZOnD454",
+   "tipo": "ret_compare",
+   "a": "NOC",
+   "b": "SPY",
+   "desde": "2013-11-21",
+   "hasta": "2022-02-24",
+   "espera": "a>b",
+   "margen_min": 1.0
+  },
+  {
+   "id": "qqqi-rinde-menos-que-qqq",
+   "afirmacion": "QQQI rinde menos que el indice QQQ desde que existe: cambia crecimiento por pagos.",
+   "fuente": "https://www.youtube.com/watch?v=eSXkU2sRC9E",
+   "tipo": "ret_compare",
+   "a": "QQQI",
+   "b": "QQQ",
+   "desde": "2024-01-30",
+   "hasta": "hoy",
+   "espera": "a<b"
+  },
+  {
+   "id": "jepq-rinde-menos-que-qqq",
+   "afirmacion": "JEPQ rinde menos que QQQ en toda su vida: +82,17% contra +112,00% al 13 nov 2026.",
+   "fuente": "https://www.youtube.com/watch?v=eSXkU2sRC9E",
+   "tipo": "ret_compare",
+   "a": "JEPQ",
+   "b": "QQQ",
+   "desde": "2022-05-04",
+   "hasta": "hoy",
+   "espera": "a<b",
+   "margen_min": 0.05
+  },
+  {
+   "id": "brian-vgt-anual",
+   "afirmacion": "VGT dio 20,56% anual desde el 20 oct 2011, el mejor de los tres ETFs de Brian.",
+   "fuente": "https://www.youtube.com/watch?v=3ZvWbsE_tFQ",
+   "tipo": "ret",
+   "activo": "VGT",
+   "desde": "2011-10-20",
+   "hasta": "hoy",
+   "metrica": "anual",
+   "esperado": 0.2056,
+   "tol": 0.02
+  },
+  {
+   "id": "brian-voo-anual",
+   "afirmacion": "VOO dio 14,89% anual desde el 20 oct 2011.",
+   "fuente": "https://www.youtube.com/watch?v=3ZvWbsE_tFQ",
+   "tipo": "ret",
+   "activo": "VOO",
+   "desde": "2011-10-20",
+   "hasta": "hoy",
+   "metrica": "anual",
+   "esperado": 0.1489,
+   "tol": 0.02
+  },
+  {
+   "id": "brian-schd-anual",
+   "afirmacion": "SCHD dio 13,76% anual desde el 20 oct 2011, el mas bajo de los tres.",
+   "fuente": "https://www.youtube.com/watch?v=3ZvWbsE_tFQ",
+   "tipo": "ret",
+   "activo": "SCHD",
+   "desde": "2011-10-20",
+   "hasta": "hoy",
+   "metrica": "anual",
+   "esperado": 0.1376,
+   "tol": 0.02
+  },
+  {
+   "id": "alexruiz-mantener-btc-gana",
+   "afirmacion": "Mantener Bitcoin desde 2018 rinde mas que el 4,68% anual que logro la estrategia de Alex Ruiz en ese mismo periodo.",
+   "fuente": "https://www.youtube.com/watch?v=1dRsujs4SWs",
+   "tipo": "ret",
+   "activo": "BTC-USD",
+   "desde": "2018-01-01",
+   "hasta": "hoy",
+   "metrica": "anual",
+   "min": 0.0468
+  },
+  {
+   "id": "fcx-maximo-anterior",
+   "afirmacion": "El maximo intradia de FCX del 26 ago 2026 fue US$80,07. Es el nivel al que Cesar decidio vender FCX.",
+   "fuente": "SMSF Centro de mando, reglas fijas",
+   "tipo": "level",
+   "activo": "FCX",
+   "fecha": "2026-08-26",
+   "campo": "max",
+   "esperado": 80.07,
+   "tol": 0.6
+  }
+ ]
+}

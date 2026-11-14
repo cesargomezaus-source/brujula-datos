@@ -18,10 +18,12 @@ jobs:
         run: python3 -I build_data.py --fund data/fund.json
       - name: Generar check.json
         run: python3 -I build_data.py --check data/check.json
+      - name: Verificar afirmaciones
+        run: python3 -I verify_claims.py claims.json data/claims_check.json
       - name: Publicar si cambio
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/fund.json data/check.json
-          git diff --staged --quiet || git commit -m "Actualizar fund.json y check.json"
+          git add data/fund.json data/check.json data/claims_check.json
+          git diff --staged --quiet || git commit -m "Actualizar fund.json, check.json y claims_check.json"
           git push
