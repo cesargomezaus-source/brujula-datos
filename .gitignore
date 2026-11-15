@@ -1,0 +1,8 @@
+
+# Nunca subir cifras de cuentas: solo vive aqui el codigo del analizador
+*.xlsx
+*.xls
+informe*.md
+stake*.json
+stake/salida/
+__pycache__/
