@@ -1,0 +1,74 @@
+name: app
+# Genera los datos de los que ARRANCA la Brujula: core.json y flt.json.
+#
+# Por que existe este workflow (16 nov 2026): hasta hoy nadie los generaba.
+# fund.yml solo hacia fund.json, check.json y claims_check.json. core.json y
+# flt.json vivian unicamente dentro del artefacto publicado, puestos a mano en
+# alguna sesion. Eso significaba que si envejecian, nada los refrescaba, y que
+# la puerta de publicacion comprobaba una app que no podia arrancar.
+#
+# No se suben los ~180 archivos de t/ a proposito: pesan unos 30 MB y subirlos
+# a diario hincharia el repositorio. La app los sigue sirviendo desde el
+# artefacto. core.json y flt.json son lo que hace falta para que arranque y
+# para poder comprobarla de verdad antes de publicar.
+
+on:
+  schedule:
+    - cron: '30 20 * * *'   # media hora despues de fund.yml, para no competir
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: datos-brujula
+  cancel-in-progress: false
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generar core.json y flt.json
+        # El segundo argumento es el core anterior: build_data.py lo usa como
+        # respaldo si Yahoo no entrega fundamentales o capitalizaciones.
+        run: |
+          mkdir -p salida
+          python3 -I build_data.py salida data/core.json
+
+      - name: Comprobar que salio entero antes de publicarlo
+        # Si el build sale corto, NO se sube: mejor datos de ayer que datos rotos.
+        run: |
+          python3 -I - <<'PY'
+          import json, sys, os
+          core = json.load(open('salida/core.json'))
+          flt  = json.load(open('salida/flt.json'))
+          fallos = []
+          if len(core.get('list', [])) < 150:
+              fallos.append('core.list tiene %d activos, minimo 150' % len(core.get('list', [])))
+          for s in ('SPY', 'QQQ', 'NVDA', 'BTC-USD', 'PMGOLD.AX'):
+              if not any(e['s'] == s for e in core.get('list', [])):
+                  fallos.append('falta %s en core.list' % s)
+          if len(flt) < 150:
+              fallos.append('flt.json tiene %d series, minimo 150' % len(flt))
+          if os.path.getsize('salida/core.json') < 500000:
+              fallos.append('core.json pesa menos de 500 KB')
+          if fallos:
+              print('NO SE PUBLICA:'); [print(' -', f) for f in fallos]; sys.exit(1)
+          print('core.json %d activos, flt.json %d series' % (len(core['list']), len(flt)))
+          PY
+
+      - name: Publicar si cambio
+        run: |
+          cp salida/core.json data/core.json
+          cp salida/flt.json  data/flt.json
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/core.json data/flt.json
+          git diff --staged --quiet || git commit -m "Actualizar core.json y flt.json"
+          git push
