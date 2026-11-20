@@ -26,4 +26,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/fund.json data/check.json data/claims_check.json
           git diff --staged --quiet || git commit -m "Actualizar fund.json, check.json y claims_check.json"
-          git push
+          for i in 1 2 3; do git pull --rebase --autostash -q && git push && break; echo "reintento $i"; sleep 15; done
